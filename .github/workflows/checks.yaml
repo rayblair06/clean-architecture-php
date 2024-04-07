@@ -1,6 +1,10 @@
 name: Quality Checks
 
-on: pull_request
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 env:
   PHP_VERSION: "8.3"
@@ -36,10 +40,12 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
 
-  tests:
-    name: Run Tests
+  test-and-lint:
     needs: setup
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        task: [test, lint]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -59,41 +65,16 @@ jobs:
           make build && make start
           sleep 30s # Wait for services to initialize
 
-      - name: Database Setup
+      - name: Setup Database
+        if: matrix.task == 'test'
         run: |
           make migrate
           make seed
 
-      - name: Execute Tests
+      - name: Run Tests
+        if: matrix.task == 'test'
         run: composer test
 
-  linter:
-    name: Run Linter
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Use Composer Cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ needs.setup.outputs.composer-cache-dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Prepare Application
-        run: cp .env.ci .env
-
-      - name: Start Application
-        run: |
-          make build && make start
-          sleep 30s # Wait for services to initialize
-
-      - name: Database Setup
-        run: |
-          make migrate
-          make seed
-
-      - name: Execute Linter
+      - name: Run Linter
+        if: matrix.task == 'lint'
         run: composer lint
