@@ -1,32 +1,40 @@
 name: Quality Checks
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
-
-permissions:
-  contents: read
 
 env:
   PHP_VERSION: "8.3"
 
 jobs:
-  setup:
-    name: Setup Environment
+  # services:
+  #   mysql:
+  #     image: mysql:8
+  #     env:
+  #       MYSQL_ROOT_PASSWORD: '${{  env.DB_PASSWORD }}'
+  #       MYSQL_ROOT_HOST: "%"
+  #       MYSQL_DATABASE: ' ${{  env.DB_DATABASE }}'
+  #       MYSQL_USER: '${{  env.DB_USERNAME }}'
+  #       MYSQL_PASSWORD: '${{  env.DB_PASSWORD }}'
+  #       MYSQL_ALLOW_EMPTY_PASSWORD: 1
+  #     ports:
+  #       - 3306:3306
+  #     options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+  # Check tests pass
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
-    outputs:
-      composer-cache-dir: ${{ steps.composer-cache.outputs.dir }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Install PHP v${{ env.PHP_VERSION }}
+      - name: Install PHP v${{  env.PHP_VERSION }}
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          tools: composer:v2
+          tools: composer
           coverage: none
 
       - name: Get composer cache directory
@@ -34,73 +42,83 @@ jobs:
         run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v1
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}-dev
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest
-
-  tests:
-    name: Run Tests
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Use Composer Cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ needs.setup.outputs.composer-cache-dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
+        run: composer install --no-progress
 
       - name: Prepare Application
-        run: cp .env.ci .env
+        run: |
+          cp .env.ci .env
 
-      - name: Start Application
+      - name: Serve application
         run: |
           make build && make start
-          sleep 30s # Wait for services to initialize
 
-      - name: Database Setup
+      # Note: Race condition fix - MySQL takes time to initialise
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+
+      - name: Run database migrations
         run: |
           make migrate
           make seed
 
-      - name: Execute Tests
-        run: composer test
+      - name: Run Tests
+        run: composer tests
 
+  # Check style violations
   linter:
-    name: Run Linter
-    needs: setup
+    name: Linter
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Use Composer Cache
-        uses: actions/cache@v3
+      - name: Install PHP v${{  env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
         with:
-          path: ${{ needs.setup.outputs.composer-cache-dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+      - name: Cache dependencies
+        uses: actions/cache@v1
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}-dev
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Prepare Application
-        run: cp .env.ci .env
+      - name: Install dependencies
+        run: composer install --no-progress
 
-      - name: Start Application
+      - name: Prepare Application
+        run: |
+          cp .env.ci .env
+
+      - name: Serve application
         run: |
           make build && make start
-          sleep 30s # Wait for services to initialize
 
-      - name: Database Setup
+      # Note: Race condition fix - MySQL takes time to initialise
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+
+      - name: Run database migrations
         run: |
           make migrate
           make seed
 
-      - name: Execute Linter
+      - name: Run Linter
         run: composer lint
