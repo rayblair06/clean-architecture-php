@@ -7,10 +7,10 @@ start:
 	@docker-compose up -d --build app
 
 migrate:
-	@docker exec app php vendor/bin/phinx migrate
+	@docker-compose run --rm composer migrate
 
 seed:
-	@docker exec app php vendor/bin/phinx seed:run
+	@docker-compose run --rm composer migrate:seed
 
 composer-install:
 	@docker-compose run --rm composer install

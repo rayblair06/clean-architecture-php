@@ -1,6 +1,13 @@
 name: Quality Checks
 
-on: pull_request
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
 
 env:
   PHP_VERSION: "8.3"

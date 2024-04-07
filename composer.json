@@ -37,6 +37,8 @@
     "sort-packages": true
   },
   "scripts": {
+    "migrate": "vendor/bin/phinx migrate",
+    "migrate:seed": "vendor/bin/phinx seed:run",
     "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes",
     "lint": "vendor/bin/php-cs-fixer",
     "tests": "vendor/bin/phpunit"
