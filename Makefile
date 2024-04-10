@@ -12,8 +12,8 @@ migrate:
 seed:
 	@docker exec app php vendor/bin/phinx seed:run
 
-composer-install:
-	@docker-compose run --rm composer install
+composer:
+	@docker-compose run --rm composer $(filter-out $@,$(MAKECMDGOALS))
 
-composer-update:
-	@docker-compose run --rm composer update
+%:
+    @:
