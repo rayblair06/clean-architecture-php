@@ -13,7 +13,7 @@ final class HomeTest extends TestCase
         $response = $this
             ->get('/');
 
-        dd($response->getBody()->getContents());
+        // dd($response);
 
         $this->assertEquals(200, $response->getStatusCode());
 
