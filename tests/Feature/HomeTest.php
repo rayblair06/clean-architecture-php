@@ -15,6 +15,8 @@ final class HomeTest extends TestCase
 
         $this->assertEquals(200, $response->getStatusCode());
 
+        dd($response);
+
         $this->assertStringContainsString(
             'Hello World',
             $response->getBody()->getContents()
